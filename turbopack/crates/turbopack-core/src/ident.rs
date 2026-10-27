@@ -321,7 +321,7 @@ impl AssetIdent {
         }
         const MAX_FILENAME: usize = 80;
         if name.len() - i > MAX_FILENAME {
-            i = name.len() - MAX_FILENAME;
+            i = name.floor_char_boundary(name.len() - MAX_FILENAME);
             if let Some(j) = name[i..].find('_')
                 && j < 20
             {
@@ -459,6 +459,40 @@ pub mod tests {
 
             let output_name = output_name_operation().read_strongly_consistent().await?;
             assert_eq!(&*output_name, "prefix-a_b_c_d.js");
+
+            Ok(())
+        })
+        .await
+        .unwrap();
+    }
+
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn test_output_name_multibyte_utf8_truncation() {
+        let tt = turbo_tasks::TurboTasks::new(TurboTasksBackend::new(
+            BackendOptions::default(),
+            noop_backing_storage(),
+        ));
+        tt.run_once(async move {
+            #[turbo_tasks::function(operation, root)]
+            async fn output_name_operation() -> anyhow::Result<Vc<RcStr>> {
+                let fs = VirtualFileSystem::new_with_name(rcstr!("test"));
+                let root = fs.root().owned().await?;
+
+                // Multibyte characters like 'å' take 2 bytes. Ensure the 80-byte truncation
+                // boundary lands directly inside the multibyte UTF-8 sequence.
+                // Before fixing floor_char_boundary, this would panic with:
+                // "start byte index ... is not a char boundary; it is inside 'å'"
+                let long_name = format!(
+                    "long_directory_prefix_{}_demoå_suffix_comp.module.css",
+                    "x".repeat(50)
+                );
+                let asset_ident = AssetIdent::from_path(root.join(&long_name)?).into_vc();
+                let output_name = asset_ident.output_name(root, None, rcstr!(".css")).await?;
+                Ok(Vc::cell((*output_name).clone()))
+            }
+
+            let output_name = output_name_operation().read_strongly_consistent().await?;
+            assert!(output_name.ends_with(".css"));
 
             Ok(())
         })
