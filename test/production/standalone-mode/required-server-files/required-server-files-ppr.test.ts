@@ -356,6 +356,34 @@ describe('required server files app router', () => {
       expect($('#page').text()).toBe('/rewrite/[slug]')
       expect($('#params').text()).toBe(JSON.stringify({ slug: 'first-cookie' }))
     })
+
+    it('should recover concrete params from x-nextjs-rewritten-path on dynamic route with Next-Resume', async () => {
+      const res = await fetchViaHTTP(
+        appPort,
+        '/?nxtPslug=%5Bslug%5D',
+        undefined,
+        withInvocationId({
+          method: 'POST',
+          headers: {
+            'x-matched-path': '/rewrite/[slug]',
+            'x-nextjs-rewritten-path': '/rewrite/first-cookie',
+            'next-resume': '1',
+          },
+          body: rewritePostpone,
+        })
+      )
+
+      expect(res.status).toBe(200)
+
+      // We expect that because we're performing a resume, we should be a miss.
+      expect(res.headers.get('x-nextjs-cache-entry-handler')).toBe('MISS_2')
+
+      const html = await res.text()
+      const $ = cheerio.load(html)
+
+      expect($('#page').text()).toBe('/rewrite/[slug]')
+      expect($('#params').text()).toBe(JSON.stringify({ slug: 'first-cookie' }))
+    })
   })
 
   it('should still render when postponed is corrupted with Next-Resume', async () => {

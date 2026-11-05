@@ -108,6 +108,7 @@ import {
   NEXT_URL,
   NEXT_ROUTER_STATE_TREE_HEADER,
   NEXT_INSTANT_TEST_COOKIE,
+  NEXT_REWRITTEN_PATH_HEADER,
 } from '../client/components/app-router-headers'
 import { nanoid } from 'next/dist/compiled/nanoid'
 import { LocaleRouteNormalizer } from './normalizers/locale-route-normalizer'
@@ -1382,16 +1383,43 @@ export default abstract class Server<
             // params from the URL directly as route-matches may not
             // contain the correct values due to the filesystem path
             // matching before the dynamic route has been matched
-            if (
-              !paramsResult.hasValidParams &&
-              !isDynamicRoute(normalizedUrlPath)
-            ) {
-              let matcherParams = utils.dynamicRouteMatcher?.(normalizedUrlPath)
+            if (!paramsResult.hasValidParams) {
+              let matcherParams = !isDynamicRoute(normalizedUrlPath)
+                ? utils.dynamicRouteMatcher?.(normalizedUrlPath)
+                : undefined
+
+              if (
+                !matcherParams &&
+                rewrittenParsedUrl.pathname &&
+                !isDynamicRoute(rewrittenParsedUrl.pathname)
+              ) {
+                matcherParams = utils.dynamicRouteMatcher?.(
+                  rewrittenParsedUrl.pathname
+                )
+              }
+
+              const rewrittenHeader = req.headers[NEXT_REWRITTEN_PATH_HEADER]
+              if (
+                !matcherParams &&
+                typeof rewrittenHeader === 'string' &&
+                rewrittenHeader &&
+                !isDynamicRoute(rewrittenHeader)
+              ) {
+                matcherParams = utils.dynamicRouteMatcher?.(rewrittenHeader)
+              }
 
               if (matcherParams) {
-                utils.normalizeDynamicRouteParams(matcherParams, false)
-                Object.assign(paramsResult.params, matcherParams)
-                paramsResult.hasValidParams = true
+                const curParamsResult = utils.normalizeDynamicRouteParams(
+                  matcherParams,
+                  false
+                )
+
+                if (curParamsResult.hasValidParams) {
+                  paramsResult = curParamsResult
+                } else {
+                  Object.assign(paramsResult.params, matcherParams)
+                  paramsResult.hasValidParams = true
+                }
               }
             }
 
