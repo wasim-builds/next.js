@@ -4580,7 +4580,9 @@ async function renderToStream(
             getServerInsertedHTML: makeGetServerInsertedHTML({
               polyfills,
               renderServerInsertedHTML,
-              serverCapturedErrors: [],
+              serverCapturedErrors: allCapturedErrors.includes(err)
+                ? allCapturedErrors
+                : [err, ...allCapturedErrors],
               basePath,
               tracingMetadata: tracingMetadata,
             }),
@@ -4676,7 +4678,9 @@ async function renderToStream(
             getServerInsertedHTML: makeGetServerInsertedHTML({
               polyfills,
               renderServerInsertedHTML,
-              serverCapturedErrors: [],
+              serverCapturedErrors: allCapturedErrors.includes(err)
+                ? allCapturedErrors
+                : [err, ...allCapturedErrors],
               basePath,
               tracingMetadata: tracingMetadata,
             }),
@@ -10787,7 +10791,9 @@ async function prerenderToStream(
         const getServerInsertedHTML = makeGetServerInsertedHTML({
           polyfills,
           renderServerInsertedHTML,
-          serverCapturedErrors: [],
+          serverCapturedErrors: allCapturedErrors.includes(err)
+            ? allCapturedErrors
+            : [err, ...allCapturedErrors],
           basePath,
           tracingMetadata: tracingMetadata,
         })

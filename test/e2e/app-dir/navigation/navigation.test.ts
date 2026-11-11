@@ -794,8 +794,22 @@ describe('app dir - navigation', () => {
       )
     })
 
+    it('should emit refresh meta tag for redirect page without suspense when streaming', async () => {
+      const html = await next.render('/redirect/no-suspense')
+      expect(html).toContain(
+        '<meta id="__next-page-redirect" http-equiv="refresh" content="1;url=/redirect/result"/>'
+      )
+    })
+
     it('should emit refresh meta tag (permanent) for redirect page when streaming', async () => {
       const html = await next.render('/redirect/suspense-2')
+      expect(html).toContain(
+        '<meta id="__next-page-redirect" http-equiv="refresh" content="0;url=/redirect/result"/>'
+      )
+    })
+
+    it('should emit refresh meta tag (permanent) for redirect page without suspense when streaming', async () => {
+      const html = await next.render('/redirect/no-suspense-2')
       expect(html).toContain(
         '<meta id="__next-page-redirect" http-equiv="refresh" content="0;url=/redirect/result"/>'
       )
