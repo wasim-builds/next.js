@@ -37,5 +37,8 @@ describe('on-request-error - client-abort', () => {
       )
     })
     expect(next.cliOutput).not.toContain('The destination stream closed early')
+    expect(next.cliOutput).not.toContain(
+      'The destination stream errored while writing data'
+    )
   })
 })
