@@ -1,4 +1,4 @@
-import { parseHostHeader } from './action-handler'
+import { getForwardedActionUrl, parseHostHeader } from './action-handler'
 import {
   getServerModuleMap,
   setManifestsSingleton,
@@ -153,5 +153,50 @@ describe('parseHostHeader', () => {
         'www.bar.com'
       )
     ).toEqual({ type: 'x-forwarded-host', value: 'www.bar.com' })
+  })
+})
+
+describe('getForwardedActionUrl', () => {
+  const origin = 'http://localhost:3000'
+
+  it('encodes dynamic route patterns with brackets so frontends do not reject them with 400', () => {
+    const url = getForwardedActionUrl(origin, '', '/items/[id]/edit')
+    expect(url.pathname).toBe('/items/%5Bid%5D/edit')
+    expect(url.href).toBe('http://localhost:3000/items/%5Bid%5D/edit')
+  })
+
+  it('encodes catch-all and optional catch-all route patterns', () => {
+    const catchAllUrl = getForwardedActionUrl(
+      origin,
+      '',
+      '/blog/[category]/[...slug]'
+    )
+    expect(catchAllUrl.pathname).toBe('/blog/%5Bcategory%5D/%5B...slug%5D')
+
+    const optionalCatchAllUrl = getForwardedActionUrl(
+      origin,
+      '',
+      '/docs/[[...slug]]'
+    )
+    expect(optionalCatchAllUrl.pathname).toBe('/docs/%5B%5B...slug%5D%5D')
+  })
+
+  it('encodes root dynamic routes', () => {
+    const rootDynamicUrl = getForwardedActionUrl(origin, '', '/[slug]')
+    expect(rootDynamicUrl.pathname).toBe('/%5Bslug%5D')
+  })
+
+  it('preserves static routes without brackets', () => {
+    const staticUrl = getForwardedActionUrl(origin, '', '/about')
+    expect(staticUrl.pathname).toBe('/about')
+
+    const rootUrl = getForwardedActionUrl(origin, '', '/')
+    expect(rootUrl.pathname).toBe('/')
+  })
+
+  it('supports basePath with dynamic routes', () => {
+    const url = getForwardedActionUrl(origin, '/my-base', '/items/[id]/edit')
+    expect(url.pathname).toBe('/my-base/items/%5Bid%5D/edit')
+    expect(url.href).toBe('http://localhost:3000/my-base/items/%5Bid%5D/edit')
   })
 })

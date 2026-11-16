@@ -215,6 +215,14 @@ function addRevalidationHeader(
   }
 }
 
+export function getForwardedActionUrl(
+  origin: string,
+  basePath: string,
+  workerPathname: string
+): URL {
+  return new URL(`${origin}${basePath}${encodeURI(workerPathname)}`)
+}
+
 /**
  * Forwards a server action request to a separate worker. Used when the requested action is not available in the current worker.
  */
@@ -258,7 +266,7 @@ async function createForwardedActionResponse(
     }
   }
 
-  const fetchUrl = new URL(`${origin}${basePath}${workerPathname}`)
+  const fetchUrl = getForwardedActionUrl(origin, basePath, workerPathname)
 
   try {
     let body: BodyInit | ReadableStream<Uint8Array> | undefined
