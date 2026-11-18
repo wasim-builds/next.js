@@ -158,6 +158,18 @@ export async function spawnNextUpgrade(
   let baseDir = resolvePath(directory || '.')
 
   if (options.agent) {
+    // When upgrade is launched from `next dev` (or an environment where NODE_ENV
+    // was defaulted or set to development), remove NODE_ENV so the agent and
+    // delegated CLI do not inherit it. The agent must be free to run `next build`
+    // (which defaults to production) and `next dev` without being forced into development mode.
+    if (
+      process.env.__NEXT_DEFAULTED_NODE_ENV === '1' ||
+      process.env.NODE_ENV === 'development'
+    ) {
+      delete (process.env as Record<string, string | undefined>).NODE_ENV
+      delete process.env.__NEXT_DEFAULTED_NODE_ENV
+    }
+
     // Match dev/build's telemetry storage, including custom output directories in CI.
     // Retain config errors until after recording the invocation so failed runs still count.
     let distDir = '.next'

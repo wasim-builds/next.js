@@ -294,6 +294,29 @@ describe('agentic upgrade prompts', () => {
     expect(process.env.__NEXT_UPGRADE_USE_CURRENT_CLI).toBeUndefined()
   })
 
+  it('cleans inherited NODE_ENV=development when launching an agent upgrade', async () => {
+    process.env.NODE_ENV = 'development'
+    process.env.__NEXT_DEFAULTED_NODE_ENV = '1'
+    jest.mocked(prepareUpgrade).mockResolvedValue({
+      status: 'unaffected',
+      reason: 'Already current.',
+    })
+
+    await spawnNextUpgrade(
+      '/workspace/app',
+      {
+        revision: 'latest',
+        verbose: false,
+        agent: 'security',
+      },
+      null
+    )
+
+    expect(process.env.NODE_ENV).toBeUndefined()
+    expect(process.env.__NEXT_DEFAULTED_NODE_ENV).toBeUndefined()
+    expect(prepareUpgrade).toHaveBeenCalledWith('/workspace/app', 'security')
+  })
+
   it('rejects a worker running a different CLI version', async () => {
     process.env.__NEXT_UPGRADE_EXPECTED_CLI_VERSION = '0.0.0'
 
@@ -406,6 +429,40 @@ describe('agentic upgrade prompts', () => {
       expect(prepareUpgrade).toHaveBeenCalledTimes(0)
     }
   )
+
+  it('omits NODE_ENV=development when delegating to the canary CLI', async () => {
+    delete process.env.__NEXT_UPGRADE_EXPECTED_CLI_VERSION
+    process.env.NODE_ENV = 'development'
+    const version = '16.6.0-canary.1'
+    jest
+      .mocked(global.fetch)
+      .mockResolvedValue(new Response(JSON.stringify({ version })))
+    crossSpawn.mockImplementation(() => {
+      const child = new EventEmitter()
+      process.nextTick(() => child.emit('close', 0, null))
+      return child
+    })
+
+    await spawnNextUpgrade(
+      '/workspace/app',
+      {
+        revision: 'latest',
+        verbose: false,
+        agent: 'security',
+      },
+      null
+    )
+
+    expect(crossSpawn).toHaveBeenCalledWith(
+      'npx',
+      expect.anything(),
+      expect.objectContaining({
+        env: expect.not.objectContaining({
+          NODE_ENV: expect.anything(),
+        }),
+      })
+    )
+  })
 
   it('delegates to the age-eligible canary instead of the latest tag', async () => {
     delete process.env.__NEXT_UPGRADE_EXPECTED_CLI_VERSION
