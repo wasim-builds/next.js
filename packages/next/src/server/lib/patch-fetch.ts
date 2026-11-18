@@ -1009,6 +1009,7 @@ export function createPatchedFetcher(
                       fetchIdx,
                       tags,
                       isImplicitBuildTimeCache,
+                      startTime: fetchStart,
                     }
                   : undefined
 

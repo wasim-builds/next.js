@@ -198,6 +198,76 @@ describe('FileSystemCache (isrMemory 0)', () => {
       tags: ['server-time2'],
     })
   })
+
+  it('should not repopulate stale cache when tags are invalidated while in-flight', async () => {
+    const tag = 'in-flight-race-tag'
+    const key = 'in-flight-race-key'
+    const startTime = performance.timeOrigin + performance.now()
+
+    await new Promise((r) => setTimeout(r, 10))
+
+    // Tag is invalidated with expire: 0 while the callback was in-flight
+    await fsCache.revalidateTag(tag, { expire: 0 })
+
+    // In-flight read finishes and attempts to set cache with its earlier startTime
+    await fsCache.set(
+      key,
+      {
+        kind: CachedRouteKind.FETCH,
+        data: { headers: {}, body: 'stale-data', status: 200, url: '' },
+        revalidate: 30,
+      },
+      { fetchCache: true, tags: [tag], startTime }
+    )
+
+    // Subsequent read should not return stale data
+    const res = await fsCache.get(key, {
+      tags: [tag],
+      kind: IncrementalCacheKind.FETCH,
+    })
+
+    expect(res).toBeNull()
+  })
+
+  it('should not overwrite newer cache entry with older in-flight computation', async () => {
+    const key = 'newer-entry-race-key'
+    const olderStartTime = performance.timeOrigin + performance.now()
+
+    await new Promise((r) => setTimeout(r, 10))
+    const newerStartTime = performance.timeOrigin + performance.now()
+
+    await fsCache.set(
+      key,
+      {
+        kind: CachedRouteKind.FETCH,
+        data: { headers: {}, body: 'newer-data', status: 200, url: '' },
+        revalidate: 30,
+      },
+      { fetchCache: true, tags: ['race-test'], startTime: newerStartTime }
+    )
+
+    // Slower request with earlier start time attempts to overwrite
+    await fsCache.set(
+      key,
+      {
+        kind: CachedRouteKind.FETCH,
+        data: { headers: {}, body: 'older-data', status: 200, url: '' },
+        revalidate: 30,
+      },
+      { fetchCache: true, tags: ['race-test'], startTime: olderStartTime }
+    )
+
+    // Cache should retain the newer data
+    const res = await fsCache.get(key, {
+      tags: ['race-test'],
+      kind: IncrementalCacheKind.FETCH,
+    })
+
+    expect(res?.value).toMatchObject({
+      kind: CachedRouteKind.FETCH,
+      data: { body: 'newer-data' },
+    })
+  })
 })
 
 describe('FileSystemCache route-scoped build seeds', () => {

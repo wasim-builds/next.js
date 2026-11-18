@@ -252,6 +252,7 @@ export interface SetIncrementalFetchCacheContext {
   fetchIdx?: number
   tags?: string[]
   isImplicitBuildTimeCache?: boolean
+  startTime?: number
 }
 
 export interface SetIncrementalResponseCacheHandlerContext {
@@ -267,6 +268,8 @@ export interface SetIncrementalResponseCacheHandlerContext {
    * True if this is a fallback request.
    */
   isFallback?: boolean
+
+  startTime?: number
 }
 
 export interface SetIncrementalResponseCacheContext

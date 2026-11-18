@@ -627,7 +627,50 @@ export default class FileSystemCache implements CacheHandler {
     // areTagsExpired compares with the monotonic clock, so the entry is stamped
     // with it in memory and on disk. Without a stored stamp, a read from disk
     // would fall back to the file's mtime, which is wall-clock time.
-    const lastModified = Math.floor(performance.timeOrigin + performance.now())
+    const lastModified =
+      'startTime' in ctx && typeof ctx.startTime === 'number'
+        ? Math.floor(ctx.startTime)
+        : Math.floor(performance.timeOrigin + performance.now())
+
+    let existingLastModified =
+      FileSystemCache.memoryCache?.get(key)?.lastModified
+
+    if (
+      existingLastModified === undefined &&
+      this.flushToDisk &&
+      ctx.fetchCache
+    ) {
+      const filePath = this.getFilePath(key, IncrementalCacheKind.FETCH)
+      try {
+        if (this.fs.existsSync(filePath)) {
+          const fileData = await this.fs.readFile(filePath, 'utf8')
+          const parsed = JSON.parse(fileData) as StoredFetchValue
+          existingLastModified = parsed.lastModified
+        }
+      } catch {}
+    }
+
+    if (
+      typeof existingLastModified === 'number' &&
+      existingLastModified > lastModified
+    ) {
+      if (FileSystemCache.debug) {
+        console.log('FileSystemCache: skipping stale write', key)
+      }
+      return
+    }
+
+    if (
+      ctx.fetchCache &&
+      ctx.tags &&
+      ctx.tags.length > 0 &&
+      areTagsExpired(ctx.tags, lastModified)
+    ) {
+      if (FileSystemCache.debug) {
+        console.log('FileSystemCache: skipping write for expired tags', key)
+      }
+      return
+    }
 
     FileSystemCache.memoryCache?.set(key, {
       value: data,

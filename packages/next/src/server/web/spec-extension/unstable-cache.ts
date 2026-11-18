@@ -34,7 +34,8 @@ async function cacheNewResult<T>(
   tags: string[],
   revalidate: number | false | undefined,
   fetchIdx: number,
-  fetchUrl: string
+  fetchUrl: string,
+  startTime?: number
 ): Promise<unknown> {
   await incrementalCache.set(
     cacheKey,
@@ -50,7 +51,7 @@ async function cacheNewResult<T>(
       revalidate:
         typeof revalidate !== 'number' ? CACHE_ONE_YEAR_SECONDS : revalidate,
     },
-    { fetchCache: true, tags, fetchIdx, fetchUrl }
+    { fetchCache: true, tags, fetchIdx, fetchUrl, startTime }
   )
   return
 }
@@ -268,6 +269,7 @@ export function unstable_cache<T extends Callback>(
 
                 // Check if there's already a pending revalidation to avoid duplicate work
                 if (!workStore.pendingRevalidates[invocationKey]) {
+                  const startTime = performance.timeOrigin + performance.now()
                   // Create the revalidation promise
                   const revalidationPromise = workUnitAsyncStorage
                     .run(innerCacheStore, cb, ...args)
@@ -279,7 +281,8 @@ export function unstable_cache<T extends Callback>(
                         tags,
                         revalidate,
                         fetchIdx,
-                        fetchUrl
+                        fetchUrl,
+                        startTime
                       )
                       return result
                     })
@@ -324,6 +327,7 @@ export function unstable_cache<T extends Callback>(
         }
 
         // If we got this far then we had an invalid cache entry and need to generate a new one
+        const startTime = performance.timeOrigin + performance.now()
         const result = await workUnitAsyncStorage.run(
           innerCacheStore,
           cb,
@@ -345,7 +349,8 @@ export function unstable_cache<T extends Callback>(
             tags,
             revalidate,
             fetchIdx,
-            fetchUrl
+            fetchUrl,
+            startTime
           )
         }
 
@@ -385,6 +390,7 @@ export function unstable_cache<T extends Callback>(
         }
 
         // If we got this far then we had an invalid cache entry and need to generate a new one
+        const startTime = performance.timeOrigin + performance.now()
         const result = await workUnitAsyncStorage.run(
           innerCacheStore,
           cb,
@@ -401,7 +407,8 @@ export function unstable_cache<T extends Callback>(
           tags,
           revalidate,
           fetchIdx,
-          fetchUrl
+          fetchUrl,
+          startTime
         )
         return result
       }
