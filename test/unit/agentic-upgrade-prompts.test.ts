@@ -294,6 +294,83 @@ describe('agentic upgrade prompts', () => {
     expect(process.env.__NEXT_UPGRADE_USE_CURRENT_CLI).toBeUndefined()
   })
 
+  it('cleans up defaulted or development NODE_ENV during agent upgrades', async () => {
+    const env = process.env as Record<string, string | undefined>
+    const originalNodeEnv = process.env.NODE_ENV
+    const originalDefaultedNodeEnv = process.env.__NEXT_DEFAULTED_NODE_ENV
+    env.NODE_ENV = 'development'
+    process.env.__NEXT_DEFAULTED_NODE_ENV = '1'
+
+    try {
+      jest.mocked(prepareUpgrade).mockResolvedValue({
+        status: 'unaffected',
+        reason: 'Already current.',
+      })
+
+      await spawnNextUpgrade(
+        '/workspace/app',
+        {
+          revision: 'latest',
+          verbose: false,
+          agent: 'security',
+        },
+        null
+      )
+
+      expect(process.env.NODE_ENV).toBeUndefined()
+      expect(process.env.__NEXT_DEFAULTED_NODE_ENV).toBeUndefined()
+    } finally {
+      if (originalNodeEnv === undefined) {
+        delete env.NODE_ENV
+      } else {
+        env.NODE_ENV = originalNodeEnv
+      }
+      if (originalDefaultedNodeEnv === undefined) {
+        delete process.env.__NEXT_DEFAULTED_NODE_ENV
+      } else {
+        process.env.__NEXT_DEFAULTED_NODE_ENV = originalDefaultedNodeEnv
+      }
+    }
+  })
+
+  it('preserves an explicitly specified non-development NODE_ENV', async () => {
+    const env = process.env as Record<string, string | undefined>
+    const originalNodeEnv = process.env.NODE_ENV
+    const originalDefaultedNodeEnv = process.env.__NEXT_DEFAULTED_NODE_ENV
+    env.NODE_ENV = 'staging'
+    delete process.env.__NEXT_DEFAULTED_NODE_ENV
+
+    try {
+      jest.mocked(prepareUpgrade).mockResolvedValue({
+        status: 'unaffected',
+        reason: 'Already current.',
+      })
+
+      await spawnNextUpgrade(
+        '/workspace/app',
+        {
+          revision: 'latest',
+          verbose: false,
+          agent: 'security',
+        },
+        null
+      )
+
+      expect(process.env.NODE_ENV).toBe('staging')
+    } finally {
+      if (originalNodeEnv === undefined) {
+        delete env.NODE_ENV
+      } else {
+        env.NODE_ENV = originalNodeEnv
+      }
+      if (originalDefaultedNodeEnv === undefined) {
+        delete process.env.__NEXT_DEFAULTED_NODE_ENV
+      } else {
+        process.env.__NEXT_DEFAULTED_NODE_ENV = originalDefaultedNodeEnv
+      }
+    }
+  })
+
   it('rejects a worker running a different CLI version', async () => {
     process.env.__NEXT_UPGRADE_EXPECTED_CLI_VERSION = '0.0.0'
 

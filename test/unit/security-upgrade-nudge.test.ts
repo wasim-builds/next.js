@@ -990,6 +990,62 @@ describe('human upgrade nudge', () => {
     }
   )
 
+  it('removes defaulted or development NODE_ENV when launching an upgrade', async () => {
+    const env = process.env as Record<string, string | undefined>
+    env.NODE_ENV = 'development'
+    process.env.__NEXT_DEFAULTED_NODE_ENV = '1'
+    processEnv([], directory)
+    updateInitialEnv({
+      NODE_ENV: 'development',
+      __NEXT_DEFAULTED_NODE_ENV: '1',
+    })
+    jest.mocked(spawnNextUpgrade).mockImplementationOnce(async () => {
+      expect(process.env.NODE_ENV).toBeUndefined()
+      expect(process.env.__NEXT_DEFAULTED_NODE_ENV).toBeUndefined()
+      resetEnv()
+      expect(process.env.NODE_ENV).toBeUndefined()
+      expect(process.env.__NEXT_DEFAULTED_NODE_ENV).toBeUndefined()
+    })
+    await runUpgrade(directory, 'security', null)
+    expect(spawnNextUpgrade).toHaveBeenCalled()
+  })
+
+  it('removes development NODE_ENV even without defaulted marker when launching an upgrade', async () => {
+    const env = process.env as Record<string, string | undefined>
+    env.NODE_ENV = 'development'
+    delete process.env.__NEXT_DEFAULTED_NODE_ENV
+    processEnv([], directory)
+    updateInitialEnv({
+      NODE_ENV: 'development',
+      __NEXT_DEFAULTED_NODE_ENV: undefined,
+    })
+    jest.mocked(spawnNextUpgrade).mockImplementationOnce(async () => {
+      expect(process.env.NODE_ENV).toBeUndefined()
+      resetEnv()
+      expect(process.env.NODE_ENV).toBeUndefined()
+    })
+    await runUpgrade(directory, 'security', null)
+    expect(spawnNextUpgrade).toHaveBeenCalled()
+  })
+
+  it('preserves an explicitly provided non-development NODE_ENV when launching an upgrade', async () => {
+    const env = process.env as Record<string, string | undefined>
+    env.NODE_ENV = 'staging'
+    delete process.env.__NEXT_DEFAULTED_NODE_ENV
+    processEnv([], directory)
+    updateInitialEnv({
+      NODE_ENV: 'staging',
+      __NEXT_DEFAULTED_NODE_ENV: undefined,
+    })
+    jest.mocked(spawnNextUpgrade).mockImplementationOnce(async () => {
+      expect(process.env.NODE_ENV).toBe('staging')
+      resetEnv()
+      expect(process.env.NODE_ENV).toBe('staging')
+    })
+    await runUpgrade(directory, 'security', null)
+    expect(spawnNextUpgrade).toHaveBeenCalled()
+  })
+
   it.each(['blocked', 'unknown'] as const)(
     'does not force a nudge when the target is %s',
     async (status) => {

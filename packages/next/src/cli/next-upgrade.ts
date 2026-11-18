@@ -3,6 +3,7 @@ import { randomUUID } from 'crypto'
 import { cp, mkdir, mkdtemp, readFile, rm, writeFile } from 'fs/promises'
 import { tmpdir } from 'os'
 import { dirname, join, resolve as resolvePath } from 'path'
+import { updateInitialEnv } from '@next/env'
 import { major, prerelease, valid } from 'next/dist/compiled/semver'
 import * as Log from '../build/output/log'
 import createSpinner from '../build/spinner'
@@ -158,6 +159,18 @@ export async function spawnNextUpgrade(
   let baseDir = resolvePath(directory || '.')
 
   if (options.agent) {
+    if (
+      process.env.__NEXT_DEFAULTED_NODE_ENV === '1' ||
+      process.env.NODE_ENV === 'development'
+    ) {
+      delete process.env.NODE_ENV
+      delete process.env.__NEXT_DEFAULTED_NODE_ENV
+      updateInitialEnv({
+        NODE_ENV: undefined,
+        __NEXT_DEFAULTED_NODE_ENV: undefined,
+      })
+    }
+
     // Match dev/build's telemetry storage, including custom output directories in CI.
     // Retain config errors until after recording the invocation so failed runs still count.
     let distDir = '.next'
